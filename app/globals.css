@@ -1,26 +1,170 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: 0 0% 100%;
+    --foreground: 20 14.3% 4.1%;
+    --card: 0 0% 100%;
+    --card-foreground: 20 14.3% 4.1%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 20 14.3% 4.1%;
+    --primary: 24.6 95% 53.1%;
+    --primary-foreground: 60 9.1% 97.8%;
+    --secondary: 60 4.8% 95.9%;
+    --secondary-foreground: 24 9.8% 10%;
+    --muted: 60 4.8% 95.9%;
+    --muted-foreground: 25 5.3% 44.7%;
+    --accent: 60 4.8% 95.9%;
+    --accent-foreground: 24 9.8% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 60 9.1% 97.8%;
+    --border: 20 5.9% 90%;
+    --input: 20 5.9% 90%;
+    --ring: 24.6 95% 53.1%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 20 14.3% 4.1%;
+    --foreground: 60 9.1% 97.8%;
+    --card: 20 14.3% 4.1%;
+    --card-foreground: 60 9.1% 97.8%;
+    --popover: 20 14.3% 4.1%;
+    --popover-foreground: 60 9.1% 97.8%;
+    --primary: 20.5 90.2% 48.2%;
+    --primary-foreground: 60 9.1% 97.8%;
+    --secondary: 12 6.5% 15.1%;
+    --secondary-foreground: 60 9.1% 97.8%;
+    --muted: 12 6.5% 15.1%;
+    --muted-foreground: 24 5.4% 63.9%;
+    --accent: 12 6.5% 15.1%;
+    --accent-foreground: 60 9.1% 97.8%;
+    --destructive: 0 72.2% 50.6%;
+    --destructive-foreground: 60 9.1% 97.8%;
+    --border: 12 6.5% 15.1%;
+    --input: 12 6.5% 15.1%;
+    --ring: 20.5 90.2% 48.2%;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }
+
+.nouchi-gradient {
+  background: linear-gradient(135deg, #ff6b00 0%, #ffa500 100%);
+}
+
+.ivoire-gradient {
+  background: linear-gradient(135deg, #00a86b 0%, #4ade80 100%);
+}
+
+.pattern-bg {
+  background-color: #fff8f3;
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ff6b00' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #ff6b00;
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #e05e00;
+}
+
+.forum-card {
+  transition: all 0.3s ease;
+}
+
+.forum-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 25px -5px rgba(255, 107, 0, 0.1), 0 8px 10px -6px rgba(255, 107, 0, 0.1);
+}
+
+.category-card {
+  transition: all 0.3s ease;
+  border-radius: 1rem;
+  overflow: hidden;
+}
+
+.category-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+}
+
+.category-card-vie {
+  background: linear-gradient(135deg, #ff6b00 0%, #ffa500 100%);
+  color: white;
+}
+
+.category-card-tabous {
+  background: linear-gradient(135deg, #6b00ff 0%, #9b59b6 100%);
+  color: white;
+}
+
+.category-card-culture {
+  background: linear-gradient(135deg, #00a86b 0%, #4ade80 100%);
+  color: white;
+}
+
+.floating-button {
+  box-shadow: 0 10px 25px -5px rgba(255, 107, 0, 0.3), 0 8px 10px -6px rgba(255, 107, 0, 0.2);
+  transition: all 0.3s ease;
+}
+
+.floating-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 15px 30px -5px rgba(255, 107, 0, 0.4), 0 10px 15px -6px rgba(255, 107, 0, 0.3);
+}
+
+.hero-text {
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.badge-premium {
+  background: linear-gradient(135deg, #ffd700 0%, #ffa500 100%);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  font-size: 0.75rem;
+  box-shadow: 0 2px 5px rgba(255, 165, 0, 0.3);
+}
+
+.badge-new {
+  background: linear-gradient(135deg, #00a86b 0%, #4ade80 100%);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  font-size: 0.75rem;
+  box-shadow: 0 2px 5px rgba(0, 168, 107, 0.3);
+}
+
+.badge-hot {
+  background: linear-gradient(135deg, #ff4500 0%, #ff6b00 100%);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  font-size: 0.75rem;
+  box-shadow: 0 2px 5px rgba(255, 69, 0, 0.3);
+}
+
