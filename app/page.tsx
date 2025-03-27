@@ -1,11 +1,64 @@
+"use client"
+
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ChevronRight, Clock, Flame, Lock, MessageSquare, Star, ThumbsUp, TrendingUp, Users } from "lucide-react"
+import { ChevronRight, Clock, Flame, Lock, MessageSquare, Star, TrendingUp, Users } from "lucide-react"
 import { CreateActionButtonV2 } from "@/components/create-action-button-v2"
+import { useForums } from "@/hooks/use-forums"
+import type { Forum, Category } from "@/lib/supabase-client"
 
 export default function Home() {
+  const [topForums, setTopForums] = useState<Forum[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  const { getPublicForums, getCategories } = useForums()
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true)
+      try {
+        // Récupérer les forums publics
+        const forums = await getPublicForums()
+
+        // Trier par nombre de posts (décroissant)
+        const sortedForums = [...forums].sort((a, b) => (b.post_count || 0) - (a.post_count || 0))
+
+        // Prendre les 3 premiers
+        setTopForums(sortedForums.slice(0, 3))
+
+        // Récupérer les catégories
+        const categoriesData = await getCategories()
+        setCategories(categoriesData)
+      } catch (error) {
+        console.error("Erreur lors du chargement des données:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [getPublicForums, getCategories])
+
+  // Fonction pour obtenir la classe CSS de la catégorie
+  const getCategoryClass = (categoryId: number | null) => {
+    if (!categoryId) return "category-card-vie"
+
+    switch (categoryId) {
+      case 1:
+        return "category-card-vie"
+      case 2:
+        return "category-card-tabous"
+      case 3:
+        return "category-card-culture"
+      default:
+        return "category-card-vie"
+    }
+  }
+
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
@@ -89,71 +142,68 @@ export default function Home() {
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[
-              {
-                id: 1,
-                title: "Comment économiser à Abidjan ?",
-                comments: 24,
-                category: "Vie Pratique",
-                likes: 42,
-                time: "Il y a 3 heures",
-                hot: true,
-              },
-              {
-                id: 2,
-                title: "Parler de sexe, c'est dur ?",
-                comments: 18,
-                category: "Tabous et Sans Filtre",
-                likes: 36,
-                time: "Il y a 5 heures",
-                new: true,
-              },
-              {
-                id: 3,
-                title: "Le meilleur garba de Cocody",
-                comments: 32,
-                category: "Culture & Détente",
-                likes: 51,
-                time: "Il y a 2 heures",
-                premium: true,
-              },
-            ].map((post, index) => (
-              <Link href={`/forums/post/${post.id}`} key={index}>
-                <Card className="h-full forum-card border-none shadow-md">
-                  <CardContent className="p-5">
-                    <div className="flex flex-col h-full">
-                      <div className="flex justify-between items-start mb-2">
-                        <Badge
-                          variant={post.hot ? "hot" : post.new ? "new" : post.premium ? "premium" : "default"}
-                          className="mb-2"
-                        >
-                          {post.hot ? "Populaire" : post.new ? "Nouveau" : "Premium"}
-                        </Badge>
-                        <div className="flex items-center text-muted-foreground text-sm">
-                          <Clock className="h-3 w-3 mr-1" />
-                          {post.time}
-                        </div>
-                      </div>
-                      <h3 className="font-medium text-lg mb-2">{post.title}</h3>
-                      <p className="text-sm text-muted-foreground mb-4">{post.category}</p>
-                      <div className="mt-auto flex justify-between items-center">
+            {isLoading ? (
+              Array(3)
+                .fill(0)
+                .map((_, index) => (
+                  <Card key={index} className="h-full forum-card border-none shadow-md animate-pulse">
+                    <CardContent className="p-5">
+                      <div className="h-4 w-24 bg-muted rounded mb-2"></div>
+                      <div className="h-6 w-full bg-muted rounded mb-2"></div>
+                      <div className="h-4 w-3/4 bg-muted rounded mb-4"></div>
+                      <div className="flex justify-between items-center">
                         <div className="flex items-center gap-4">
-                          <div className="flex items-center text-sm">
-                            <MessageSquare className="h-4 w-4 mr-1 text-primary" />
-                            {post.comments}
-                          </div>
-                          <div className="flex items-center text-sm">
-                            <ThumbsUp className="h-4 w-4 mr-1 text-primary" />
-                            {post.likes}
+                          <div className="h-4 w-16 bg-muted rounded"></div>
+                          <div className="h-4 w-16 bg-muted rounded"></div>
+                        </div>
+                        <div className="h-4 w-4 bg-muted rounded-full"></div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+            ) : topForums.length > 0 ? (
+              topForums.map((forum, index) => (
+                <Link href={`/forums/${forum.id}`} key={forum.id}>
+                  <Card className="h-full forum-card border-none shadow-md">
+                    <CardContent className="p-5">
+                      <div className="flex flex-col h-full">
+                        <div className="flex justify-between items-start mb-2">
+                          <Badge variant={index === 0 ? "hot" : index === 1 ? "new" : "premium"} className="mb-2">
+                            {index === 0 ? "Populaire" : index === 1 ? "Nouveau" : "Premium"}
+                          </Badge>
+                          <div className="flex items-center text-muted-foreground text-sm">
+                            <Clock className="h-3 w-3 mr-1" />
+                            {new Date(forum.created_at).toLocaleDateString("fr-FR", {
+                              day: "numeric",
+                              month: "long",
+                            })}
                           </div>
                         </div>
-                        <ChevronRight className="h-5 w-5 text-primary" />
+                        <h3 className="font-medium text-lg mb-2">{forum.title}</h3>
+                        <p className="text-sm text-muted-foreground mb-4">{forum.categories?.name || "Général"}</p>
+                        <div className="mt-auto flex justify-between items-center">
+                          <div className="flex items-center gap-4">
+                            <div className="flex items-center text-sm">
+                              <MessageSquare className="h-4 w-4 mr-1 text-primary" />
+                              {forum.post_count || 0}
+                            </div>
+                            <div className="flex items-center text-sm">
+                              <Users className="h-4 w-4 mr-1 text-primary" />
+                              {forum.member_count || 0}
+                            </div>
+                          </div>
+                          <ChevronRight className="h-5 w-5 text-primary" />
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))
+            ) : (
+              <div className="col-span-3 text-center py-8">
+                <p className="text-muted-foreground">Aucun forum disponible pour le moment.</p>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -163,37 +213,25 @@ export default function Home() {
         <div className="container px-4 max-w-7xl mx-auto">
           <h2 className="text-2xl font-bold mb-6">Catégories</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[
-              {
-                title: "Vie Pratique",
-                description: "Astuces quotidiennes, petites annonces, conseils pour économiser",
-                icon: <MessageSquare className="h-6 w-6" />,
-                class: "category-card-vie",
-                count: 24,
-              },
-              {
-                title: "Tabous et Sans Filtre",
-                description: "Sujets sensibles avec anonymat, parle sans drap",
-                icon: <Users className="h-6 w-6" />,
-                class: "category-card-tabous",
-                count: 18,
-              },
-              {
-                title: "Culture & Détente",
-                description: "Humour, musique, cuisine ivoirienne, zouglou, coupé-décalé",
-                icon: <Star className="h-6 w-6" />,
-                class: "category-card-culture",
-                count: 32,
-              },
-            ].map((category, index) => (
-              <Link href={`/categories/${index + 1}`} key={index}>
-                <div className={`category-card ${category.class} p-6 h-full`}>
+            {categories.map((category, index) => (
+              <Link href={`/categories/${category.id}`} key={category.id}>
+                <div className={`category-card ${getCategoryClass(category.id)} p-6 h-full`}>
                   <div className="flex flex-col h-full">
-                    <div className="mb-4 opacity-90">{category.icon}</div>
-                    <h3 className="font-bold text-xl mb-2">{category.title}</h3>
+                    <div className="mb-4 opacity-90">
+                      {index === 0 ? (
+                        <MessageSquare className="h-6 w-6" />
+                      ) : index === 1 ? (
+                        <Users className="h-6 w-6" />
+                      ) : (
+                        <Star className="h-6 w-6" />
+                      )}
+                    </div>
+                    <h3 className="font-bold text-xl mb-2">{category.name}</h3>
                     <p className="text-sm opacity-90 mb-4">{category.description}</p>
                     <div className="mt-auto flex justify-between items-center">
-                      <span className="text-sm opacity-90">{category.count} forums</span>
+                      <span className="text-sm opacity-90">
+                        {topForums.filter((f) => f.category_id === category.id).length} forums
+                      </span>
                       <ChevronRight className="h-5 w-5 opacity-90" />
                     </div>
                   </div>
@@ -258,7 +296,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Floating Action Button - Remplacé par le nouveau composant */}
+      {/* Floating Action Button */}
       <CreateActionButtonV2 />
     </div>
   )

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Bell, Home, Info, Lock, LogIn, Menu, MessageSquare, Search, Star, User, Users, X } from "lucide-react"
 import { usePathname } from "next/navigation"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,27 +17,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/contexts/auth-context"
 
 export default function Header() {
   const [showSearch, setShowSearch] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
   const pathname = usePathname()
-
-  // Simulate checking if user is logged in
-  useEffect(() => {
-    // This would be replaced with actual auth check
-    const checkAuth = () => {
-      const hasAuth = localStorage.getItem("isLoggedIn") === "true"
-      setIsLoggedIn(hasAuth)
-    }
-
-    checkAuth()
-
-    // For demo purposes, let's add a listener
-    window.addEventListener("storage", checkAuth)
-    return () => window.removeEventListener("storage", checkAuth)
-  }, [])
+  const { user, profile, signOut } = useAuth()
 
   // Handle scroll effect
   useEffect(() => {
@@ -49,16 +35,14 @@ export default function Header() {
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
 
-  const handleLogin = () => {
-    // For demo purposes
-    localStorage.setItem("isLoggedIn", "true")
-    setIsLoggedIn(true)
+  const handleLogout = async () => {
+    await signOut()
   }
 
-  const handleLogout = () => {
-    // For demo purposes
-    localStorage.setItem("isLoggedIn", "false")
-    setIsLoggedIn(false)
+  // Fonction pour obtenir les initiales du nom d'utilisateur
+  const getUserInitials = () => {
+    if (!profile?.username) return "CN"
+    return profile.username.substring(0, 2).toUpperCase()
   }
 
   return (
@@ -88,14 +72,24 @@ export default function Header() {
                       <span className="font-bold text-xl">Chez Nous</span>
                     </Link>
 
-                    {isLoggedIn ? (
+                    {user && profile ? (
                       <div className="flex items-center gap-3 p-3 bg-accent rounded-lg">
                         <Avatar>
-                          <AvatarFallback className="bg-primary text-white">YA</AvatarFallback>
+                          {profile.avatar_url ? (
+                            <AvatarImage src={profile.avatar_url} alt={profile.username} />
+                          ) : (
+                            <AvatarFallback className="bg-primary text-white">{getUserInitials()}</AvatarFallback>
+                          )}
                         </Avatar>
                         <div>
-                          <p className="font-medium">Yao225</p>
-                          <p className="text-xs text-muted-foreground">Membre depuis 2 mois</p>
+                          <p className="font-medium">{profile.username}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Membre depuis{" "}
+                            {new Date(profile.created_at).toLocaleDateString("fr-FR", {
+                              month: "long",
+                              year: "numeric",
+                            })}
+                          </p>
                         </div>
                       </div>
                     ) : (
@@ -154,7 +148,7 @@ export default function Header() {
                       <Info className="size-4" />À propos
                     </Link>
 
-                    {isLoggedIn && (
+                    {user && profile && (
                       <>
                         <p className="px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider mt-6 mb-2">
                           Personnel
@@ -193,7 +187,7 @@ export default function Header() {
                     )}
                   </nav>
 
-                  {isLoggedIn && (
+                  {user && profile && (
                     <div className="py-4 border-t">
                       <Button
                         variant="ghost"
@@ -276,7 +270,7 @@ export default function Header() {
               </Button>
             )}
 
-            {isLoggedIn ? (
+            {user && profile ? (
               <div className="flex items-center gap-2">
                 <Button variant="ghost" size="icon" className="relative text-muted-foreground">
                   <Bell className="h-5 w-5" />
@@ -288,7 +282,11 @@ export default function Header() {
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon" className="rounded-full">
                       <Avatar className="size-8">
-                        <AvatarFallback className="bg-primary text-white">YA</AvatarFallback>
+                        {profile.avatar_url ? (
+                          <AvatarImage src={profile.avatar_url} alt={profile.username} />
+                        ) : (
+                          <AvatarFallback className="bg-primary text-white">{getUserInitials()}</AvatarFallback>
+                        )}
                       </Avatar>
                     </Button>
                   </DropdownMenuTrigger>

@@ -1,142 +1,142 @@
 "use client"
 
-import { useState } from "react"
+import type React from "react"
+
+import { createContext, useContext, useEffect, useState } from "react"
+import type { Session, User } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabase-client"
-import type { Forum, Post } from "@/lib/supabase-client"
+import type { User as AppUser } from "@/lib/supabase-client"
 
-export function useFavorites() {
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<Error | null>(null)
+type AuthContextType = {
+  session: Session | null
+  user: User | null
+  profile: AppUser | null
+  isLoading: boolean
+  signIn: (email: string, password: string) => Promise<{ error: any }>
+  signUp: (email: string, password: string, username: string) => Promise<{ error: any; data?: any }>
+  signOut: () => Promise<void>
+  refreshProfile: () => Promise<void>
+}
 
-  // Récupérer les forums favoris d'un utilisateur
-  const getFavoriteForums = async (userId: string): Promise<Forum[]> => {
-    setIsLoading(true)
-    setError(null)
-    try {
-      const { data, error } = await supabase
-        .from("favorites")
-        .select(`
-          item_id,
-          forums:item_id(
-            *,
-            categories(id, name, description),
-            forum_post_counts(post_count),
-            forum_member_counts(member_count)
-          )
-        `)
-        .eq("user_id", userId)
-        .eq("type", "forum")
-        .order("created_at", { ascending: false })
+const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-      if (error) throw new Error(error.message)
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [session, setSession] = useState<Session | null>(null)
+  const [user, setUser] = useState<User | null>(null)
+  const [profile, setProfile] = useState<AppUser | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
-      // Transformer les données pour extraire les forums
-      return data?.map((item) => item.forums) || []
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error("Une erreur est survenue"))
-      return []
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  // Récupérer les posts favoris d'un utilisateur
-  const getFavoritePosts = async (userId: string): Promise<Post[]> => {
-    setIsLoading(true)
-    setError(null)
-    try {
-      const { data, error } = await supabase
-        .from("favorites")
-        .select(`
-          item_id,
-          posts:item_id(
-            *,
-            users(id, username, avatar_url),
-            forums(id, title, categories(id, name)),
-            post_comment_counts(comment_count),
-            post_reaction_counts(likes, dislikes)
-          )
-        `)
-        .eq("user_id", userId)
-        .eq("type", "post")
-        .order("created_at", { ascending: false })
-
-      if (error) throw new Error(error.message)
-
-      // Transformer les données pour extraire les posts
-      return data?.map((item) => item.posts) || []
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error("Une erreur est survenue"))
-      return []
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  // Vérifier si un élément est dans les favoris
-  const isFavorite = async (userId: string, type: "forum" | "post", itemId: number): Promise<boolean> => {
-    if (!userId) return false
-
-    try {
-      const { data, error } = await supabase
-        .from("favorites")
-        .select("id")
-        .eq("user_id", userId)
-        .eq("type", type)
-        .eq("item_id", itemId)
-        .maybeSingle()
-
-      if (error) throw new Error(error.message)
-      return !!data
-    } catch (err) {
-      console.error("Erreur lors de la vérification des favoris:", err)
-      return false
-    }
-  }
-
-  // Ajouter/supprimer un favori
-  const toggleFavorite = async (userId: string, type: "forum" | "post", itemId: number): Promise<boolean> => {
-    setIsLoading(true)
-    setError(null)
-    try {
-      const isCurrentlyFavorite = await isFavorite(userId, type, itemId)
-
-      if (isCurrentlyFavorite) {
-        // Supprimer des favoris
-        const { error } = await supabase
-          .from("favorites")
-          .delete()
-          .eq("user_id", userId)
-          .eq("type", type)
-          .eq("item_id", itemId)
-
-        if (error) throw new Error(error.message)
+  useEffect(() => {
+    // Récupérer la session initiale
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+      setUser(session?.user ?? null)
+      if (session?.user) {
+        fetchProfile(session.user.id)
       } else {
-        // Ajouter aux favoris
-        const { error } = await supabase.from("favorites").insert({
-          user_id: userId,
-          type,
-          item_id: itemId,
-        })
-
-        if (error) throw new Error(error.message)
+        setIsLoading(false)
       }
-      return true
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error("Une erreur est survenue"))
-      return false
+    })
+
+    // Écouter les changements d'authentification
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+      setUser(session?.user ?? null)
+      if (session?.user) {
+        fetchProfile(session.user.id)
+      } else {
+        setProfile(null)
+        setIsLoading(false)
+      }
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [])
+
+  const fetchProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase.from("users").select("*").eq("id", userId).single()
+
+      if (error) {
+        console.error("Erreur lors de la récupération du profil:", error)
+      } else {
+        setProfile(data)
+      }
+    } catch (error) {
+      console.error("Erreur inattendue:", error)
     } finally {
       setIsLoading(false)
     }
   }
 
-  return {
-    isLoading,
-    error,
-    getFavoriteForums,
-    getFavoritePosts,
-    isFavorite,
-    toggleFavorite,
+  const refreshProfile = async () => {
+    if (user) {
+      await fetchProfile(user.id)
+    }
   }
+
+  const signIn = async (email: string, password: string) => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+    return { error }
+  }
+
+  const signUp = async (email: string, password: string, username: string) => {
+    // 1. Créer l'utilisateur dans auth
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+    })
+
+    if (error || !data.user) {
+      return { error }
+    }
+
+    // 2. Créer le profil dans la table users
+    const { error: profileError } = await supabase.from("users").insert({
+      id: data.user.id,
+      username,
+    })
+
+    if (profileError) {
+      // Si la création du profil échoue, on essaie de supprimer l'utilisateur auth
+      // (bien que ce ne soit pas directement possible via l'API client)
+      await supabase.auth.signOut()
+      return { error: profileError }
+    }
+
+    return { data, error: null }
+  }
+
+  const signOut = async () => {
+    await supabase.auth.signOut()
+  }
+
+  const value = {
+    session,
+    user,
+    profile,
+    isLoading,
+    signIn,
+    signUp,
+    signOut,
+    refreshProfile,
+  }
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+}
+
+export const useAuth = () => {
+  const context = useContext(AuthContext)
+  if (context === undefined) {
+    throw new Error("useAuth doit être utilisé à l'intérieur d'un AuthProvider")
+  }
+  return context
 }
 

@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -16,24 +16,95 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { Info, Lock, MessageSquare } from "lucide-react"
+import { useForums } from "@/hooks/use-forums"
+import { useAuth } from "@/contexts/auth-context"
+import type { Category } from "@/lib/supabase-client"
 
 export default function CreateForumPage() {
   const searchParams = useSearchParams()
   const initialType = searchParams.get("type") === "private" ? "private" : "public"
-
-  const [forumType, setForumType] = useState<"public" | "private">(initialType as "public" | "private")
-  const [isLoading, setIsLoading] = useState(false)
+  \
+  const [forumType, setForumType] = useState<"public\" | \"private\">(initialType as \"public\" | \"private\"})
+  const [title, setTitle] = useState("")
+  const [description, setDescription] = useState("")
+  const [categoryId, setCategoryId] = useState<string>("")
+  const [accessCode, setAccessCode] = useState("")
+  const [memberLimit, setMemberLimit] = useState<string>("25")
   const [isPremium, setIsPremium] = useState(false)
-  const router = useRouter()
+  const [categories, setCategories] = useState<Category[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+
+  const  = useState(false)
+
+  const { user, profile } = useAuth()
+  const { getCategories, createForum, isLoading: isForumLoading, error } = useForums()
   const { toast } = useToast()
+  const router = useRouter()
+
+  useEffect(() => {
+    // Rediriger si non connecté
+    if (!user) {
+      toast({
+        title: "Connexion requise",
+        description: "Vous devez être connecté pour créer un forum.",
+        variant: "destructive",
+      })
+      router.push("/login")
+      return
+    }
+
+    // Charger les catégories
+    const fetchCategories = async () => {
+      const categoriesData = await getCategories()
+      setCategories(categoriesData)
+    }
+
+    fetchCategories()
+  }, [user, router, toast, getCategories])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
 
-    // Simulate forum creation
-    setTimeout(() => {
+    if (!user?.id) {
+      toast({
+        title: "Erreur",
+        description: "Vous devez être connecté pour créer un forum.",
+        variant: "destructive",
+      })
       setIsLoading(false)
+      return
+    }
+
+    try {
+      // Validation
+      if (title.length < 5) {
+        throw new Error("Le titre doit contenir au moins 5 caractères")
+      }
+
+      if (forumType === "private" && !accessCode) {
+        throw new Error("Un code d'accès est requis pour les forums privés")
+      }
+
+      // Préparer les données du forum
+      const forumData = {
+        title,
+        description,
+        category_id: forumType === "public" ? Number.parseInt(categoryId) : null,
+        is_private: forumType === "private",
+        access_code: forumType === "private" ? accessCode : null,
+        creator_id: user.id,
+        member_limit: Number.parseInt(memberLimit),
+        is_premium: isPremium,
+      }
+
+      // Créer le forum
+      const newForum = await createForum(forumData)
+
+      if (!newForum) {
+        throw new Error("Erreur lors de la création du forum")
+      }
+
       toast({
         title: "Forum créé avec succès",
         description:
@@ -41,8 +112,18 @@ export default function CreateForumPage() {
             ? "Ton forum privé est prêt. Partage le code d'accès avec tes amis."
             : "Ton forum public est maintenant disponible.",
       })
-      router.push(forumType === "private" ? "/mes-forums" : "/forums")
-    }, 1000)
+
+      // Rediriger vers le forum créé
+      router.push(forumType === "private" ? "/mes-forums" : `/forums/${newForum.id}`)
+    } catch (err) {
+      toast({
+        title: "Erreur",
+        description: err instanceof Error ? err.message : "Une erreur est survenue",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -85,7 +166,14 @@ export default function CreateForumPage() {
               <CardContent className="space-y-6">
                 <div className="space-y-2">
                   <Label htmlFor="title">Titre du forum</Label>
-                  <Input id="title" placeholder="Ex: Comment économiser à Abidjan ?" required className="h-11" />
+                  <Input
+                    id="title"
+                    placeholder="Ex: Comment économiser à Abidjan ?"
+                    required
+                    className="h-11"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                  />
                 </div>
 
                 <div className="space-y-2">
@@ -94,20 +182,24 @@ export default function CreateForumPage() {
                     id="description"
                     placeholder="De quoi va-t-on parler dans ce forum ?"
                     className="min-h-[100px]"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
                   />
                 </div>
 
                 {forumType === "public" && (
                   <div className="space-y-2">
                     <Label htmlFor="category">Catégorie</Label>
-                    <Select>
+                    <Select value={categoryId} onValueChange={setCategoryId}>
                       <SelectTrigger id="category" className="h-11">
                         <SelectValue placeholder="Sélectionner une catégorie" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="1">Vie Pratique</SelectItem>
-                        <SelectItem value="2">Tabous et Sans Filtre</SelectItem>
-                        <SelectItem value="3">Culture & Détente</SelectItem>
+                        {categories.map((category) => (
+                          <SelectItem key={category.id} value={category.id.toString()}>
+                            {category.name}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -115,13 +207,15 @@ export default function CreateForumPage() {
 
                 {forumType === "private" && (
                   <div className="space-y-2">
-                    <Label htmlFor="password">Code d'accès</Label>
+                    <Label htmlFor="access_code">Code d'accès</Label>
                     <Input
-                      id="password"
+                      id="access_code"
                       type="text"
                       placeholder="Ex: Garba123"
                       required={forumType === "private"}
                       className="h-11"
+                      value={accessCode}
+                      onChange={(e) => setAccessCode(e.target.value)}
                     />
                     <p className="text-xs text-muted-foreground">
                       Ce code sera nécessaire pour rejoindre ton forum privé. Partage-le uniquement avec les personnes
@@ -133,7 +227,12 @@ export default function CreateForumPage() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="premium-switch">Forum Premium</Label>
-                    <Switch id="premium-switch" checked={isPremium} onCheckedChange={setIsPremium} />
+                    <Switch
+                      id="premium-switch"
+                      checked={isPremium}
+                      onCheckedChange={setIsPremium}
+                      disabled={!profile?.is_premium}
+                    />
                   </div>
                   {isPremium ? (
                     <div className="bg-accent p-3 rounded-lg flex items-start gap-2">
@@ -148,7 +247,9 @@ export default function CreateForumPage() {
                     </div>
                   ) : (
                     <p className="text-xs text-muted-foreground">
-                      Passe en Premium pour plus de visibilité et de fonctionnalités.
+                      {profile?.is_premium
+                        ? "Passe en Premium pour plus de visibilité et de fonctionnalités."
+                        : "Deviens membre Premium pour accéder à cette fonctionnalité."}
                     </p>
                   )}
                 </div>
@@ -156,7 +257,7 @@ export default function CreateForumPage() {
                 {forumType === "private" && (
                   <div className="space-y-2">
                     <Label>Limite de membres</Label>
-                    <RadioGroup defaultValue="10">
+                    <RadioGroup value={memberLimit} onValueChange={setMemberLimit}>
                       <div className="flex items-center space-x-2">
                         <RadioGroupItem value="10" id="r1" />
                         <Label htmlFor="r1" className="cursor-pointer">
@@ -187,7 +288,7 @@ export default function CreateForumPage() {
               </CardContent>
 
               <CardFooter className="flex justify-end">
-                <Button type="submit" size="lg" disabled={isLoading}>
+                <Button type="submit" size="lg" disabled={isLoading || isForumLoading}>
                   {isLoading ? "Création en cours..." : "Créer le forum"}
                 </Button>
               </CardFooter>
