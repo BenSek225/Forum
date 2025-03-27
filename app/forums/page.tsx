@@ -15,13 +15,23 @@ import type { Forum } from "@/lib/supabase-client"
 export default function ForumsPage() {
   const [forums, setForums] = useState<Forum[]>([])
   const [searchTerm, setSearchTerm] = useState("")
+  const [isInitialLoading, setIsInitialLoading] = useState(true)
   const { getPublicForums, getUserPrivateForums, isLoading, error } = useForums()
   const { user, profile } = useAuth()
 
   useEffect(() => {
     const fetchForums = async () => {
-      const publicForums = await getPublicForums()
-      setForums(publicForums)
+      try {
+        const publicForums = await getPublicForums()
+        setForums(publicForums || [])
+      } catch (error) {
+        console.error("Erreur lors de la récupération des forums:", error)
+      } finally {
+        // Arrêter le chargement initial après 2 secondes maximum
+        setTimeout(() => {
+          setIsInitialLoading(false)
+        }, 2000)
+      }
     }
 
     fetchForums()
@@ -90,9 +100,10 @@ export default function ForumsPage() {
             </TabsList>
 
             <TabsContent value="public" className="mt-6">
-              {isLoading ? (
+              {isInitialLoading ? (
                 <div className="text-center py-12">
-                  <p>Chargement des forums...</p>
+                  <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"></div>
+                  <p className="mt-4">Chargement des forums...</p>
                 </div>
               ) : error ? (
                 <div className="text-center py-12 text-red-500">
@@ -139,8 +150,11 @@ export default function ForumsPage() {
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-12">
-                  <p>Aucun forum trouvé. Sois le premier à en créer un !</p>
+                <div className="text-center py-12 bg-white rounded-xl shadow-sm">
+                  <p className="text-muted-foreground mb-6">Aucun forum trouvé. Sois le premier à en créer un !</p>
+                  <Button asChild>
+                    <Link href="/create-forum">Créer un forum</Link>
+                  </Button>
                 </div>
               )}
             </TabsContent>

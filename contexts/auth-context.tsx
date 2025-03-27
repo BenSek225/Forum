@@ -29,6 +29,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Récupérer la session initiale
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log("Session initiale:", session)
       setSession(session)
       setUser(session?.user ?? null)
       if (session?.user) {
@@ -42,6 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log("Changement d'état d'authentification:", _event, session?.user?.id)
       setSession(session)
       setUser(session?.user ?? null)
       if (session?.user) {
@@ -59,17 +61,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchProfile = async (userId: string) => {
     try {
-      const { data, error } = await supabase.from("users").select("*").eq("id", userId).single()
+      console.log("Récupération du profil pour l'utilisateur:", userId)
+      // Utiliser maybeSingle() au lieu de single() pour éviter l'erreur 406
+      const { data, error } = await supabase.from("users").select("*").eq("id", userId).maybeSingle()
 
       if (error) {
         console.error("Erreur lors de la récupération du profil:", error)
       } else {
-        setProfile(data)
+        console.log("Profil récupéré:", data)
+        if (!data) {
+          console.log("Aucun profil trouvé, création d'un profil par défaut")
+          // Si aucun profil n'existe, créer un profil par défaut
+          await createDefaultProfile(userId)
+        } else {
+          setProfile(data)
+        }
       }
     } catch (error) {
       console.error("Erreur inattendue:", error)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const createDefaultProfile = async (userId: string) => {
+    try {
+      // Récupérer l'email de l'utilisateur depuis la session
+      const { data: userData } = await supabase.auth.getUser(userId)
+      const email = userData?.user?.email || ""
+      const username = email.split("@")[0] || `user_${Math.floor(Math.random() * 10000)}`
+
+      console.log("Création d'un profil par défaut pour:", userId, username)
+
+      const { data, error } = await supabase
+        .from("users")
+        .insert({
+          id: userId,
+          username,
+          created_at: new Date().toISOString(),
+        })
+        .select()
+
+      if (error) {
+        console.error("Erreur lors de la création du profil par défaut:", error)
+      } else if (data && data.length > 0) {
+        console.log("Profil par défaut créé:", data[0])
+        setProfile(data[0])
+      }
+    } catch (error) {
+      console.error("Erreur lors de la création du profil par défaut:", error)
     }
   }
 
@@ -80,38 +120,64 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signIn = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-    return { error }
+    try {
+      console.log("Tentative de connexion pour:", email)
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (error) {
+        console.error("Erreur de connexion:", error)
+      } else {
+        console.log("Connexion réussie:", data.user?.id)
+      }
+
+      return { error }
+    } catch (error) {
+      console.error("Erreur inattendue lors de la connexion:", error)
+      return { error }
+    }
   }
 
   const signUp = async (email: string, password: string, username: string) => {
-    // 1. Créer l'utilisateur dans auth
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    })
+    try {
+      console.log("Tentative d'inscription pour:", email, username)
 
-    if (error || !data.user) {
+      // 1. Créer l'utilisateur dans auth
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      })
+
+      if (error || !data.user) {
+        console.error("Erreur lors de la création de l'utilisateur:", error)
+        return { error }
+      }
+
+      console.log("Utilisateur créé avec succès:", data.user.id)
+
+      // 2. Créer le profil dans la table users
+      const { error: profileError } = await supabase.from("users").insert({
+        id: data.user.id,
+        username,
+        created_at: new Date().toISOString(),
+      })
+
+      if (profileError) {
+        console.error("Erreur lors de la création du profil:", profileError)
+        // Si la création du profil échoue, on essaie de supprimer l'utilisateur auth
+        // (bien que ce ne soit pas directement possible via l'API client)
+        await supabase.auth.signOut()
+        return { error: profileError }
+      }
+
+      console.log("Profil créé avec succès pour:", data.user.id, username)
+      return { data, error: null }
+    } catch (error) {
+      console.error("Erreur inattendue lors de l'inscription:", error)
       return { error }
     }
-
-    // 2. Créer le profil dans la table users
-    const { error: profileError } = await supabase.from("users").insert({
-      id: data.user.id,
-      username,
-    })
-
-    if (profileError) {
-      // Si la création du profil échoue, on essaie de supprimer l'utilisateur auth
-      // (bien que ce ne soit pas directement possible via l'API client)
-      await supabase.auth.signOut()
-      return { error: profileError }
-    }
-
-    return { data, error: null }
   }
 
   const signOut = async () => {

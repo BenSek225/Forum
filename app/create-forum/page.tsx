@@ -23,8 +23,8 @@ import type { Category } from "@/lib/supabase-client"
 export default function CreateForumPage() {
   const searchParams = useSearchParams()
   const initialType = searchParams.get("type") === "private" ? "private" : "public"
-  \
-  const [forumType, setForumType] = useState<"public\" | \"private\">(initialType as \"public\" | \"private\"})
+
+  const [forumType, setForumType] = useState<"public" | "private">(initialType as "public" | "private")
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [categoryId, setCategoryId] = useState<string>("")
@@ -33,8 +33,6 @@ export default function CreateForumPage() {
   const [isPremium, setIsPremium] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
   const [isLoading, setIsLoading] = useState(false)
-
-  const  = useState(false)
 
   const { user, profile } = useAuth()
   const { getCategories, createForum, isLoading: isForumLoading, error } = useForums()

@@ -25,18 +25,21 @@ export default function Home() {
         const forums = await getPublicForums()
 
         // Trier par nombre de posts (décroissant)
-        const sortedForums = [...forums].sort((a, b) => (b.post_count || 0) - (a.post_count || 0))
+        const sortedForums = [...(forums || [])].sort((a, b) => (b.post_count || 0) - (a.post_count || 0))
 
         // Prendre les 3 premiers
         setTopForums(sortedForums.slice(0, 3))
 
         // Récupérer les catégories
         const categoriesData = await getCategories()
-        setCategories(categoriesData)
+        setCategories(categoriesData || [])
       } catch (error) {
         console.error("Erreur lors du chargement des données:", error)
       } finally {
-        setIsLoading(false)
+        // Arrêter le chargement après 2 secondes maximum
+        setTimeout(() => {
+          setIsLoading(false)
+        }, 2000)
       }
     }
 
@@ -58,6 +61,16 @@ export default function Home() {
         return "category-card-vie"
     }
   }
+
+  // Créer des catégories par défaut si aucune n'est disponible
+  const displayCategories =
+    categories.length > 0
+      ? categories
+      : [
+          { id: 1, name: "Vie Pratique", description: "Astuces quotidiennes, petites annonces" },
+          { id: 2, name: "Tabous et Sans Filtre", description: "Sujets sensibles avec anonymat" },
+          { id: 3, name: "Culture & Détente", description: "Humour, musique, cuisine ivoirienne" },
+        ]
 
   return (
     <div className="min-h-screen">
@@ -200,8 +213,13 @@ export default function Home() {
                 </Link>
               ))
             ) : (
-              <div className="col-span-3 text-center py-8">
-                <p className="text-muted-foreground">Aucun forum disponible pour le moment.</p>
+              <div className="col-span-3 text-center py-8 bg-white rounded-xl shadow-sm">
+                <p className="text-muted-foreground mb-6">
+                  Aucun forum disponible pour le moment. Sois le premier à en créer un !
+                </p>
+                <Button asChild>
+                  <Link href="/create-forum">Créer un forum</Link>
+                </Button>
               </div>
             )}
           </div>
@@ -213,7 +231,7 @@ export default function Home() {
         <div className="container px-4 max-w-7xl mx-auto">
           <h2 className="text-2xl font-bold mb-6">Catégories</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {categories.map((category, index) => (
+            {displayCategories.map((category, index) => (
               <Link href={`/categories/${category.id}`} key={category.id}>
                 <div className={`category-card ${getCategoryClass(category.id)} p-6 h-full`}>
                   <div className="flex flex-col h-full">
